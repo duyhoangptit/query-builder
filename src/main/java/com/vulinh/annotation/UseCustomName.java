@@ -6,11 +6,11 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Denote that this field should use provided column name (for example, creating SQL instead of HQL).
+ * Denote that this field should use provided custom name.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.FIELD)
-public @interface UseColumnName {
+public @interface UseCustomName {
 
     /**
      * The column name to use in place of field name.

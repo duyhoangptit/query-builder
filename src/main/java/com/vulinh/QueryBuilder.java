@@ -11,9 +11,10 @@ import static com.vulinh.util.StringUtils.SPACE;
 import static com.vulinh.util.StringUtils.SPACED_AND;
 import static com.vulinh.util.StringUtils.SPACED_OR;
 import static com.vulinh.util.StringUtils.isNotBlank;
+import static java.lang.reflect.Modifier.isStatic;
 
 import com.vulinh.annotation.IgnoreField;
-import com.vulinh.annotation.UseColumnName;
+import com.vulinh.annotation.UseCustomName;
 import com.vulinh.annotation.UseTableAlias;
 import com.vulinh.annotation.UseWrapMethod;
 import com.vulinh.annotation.comparison.*;
@@ -39,8 +40,7 @@ public class QueryBuilder {
         checkEmptyAndStartSpace(query, presetHql);
 
         for (Field field : object.getClass().getDeclaredFields()) {
-            // Check if a field is marked as @IgnoreField or value not present (null)
-            if (field.isAnnotationPresent(IgnoreField.class) || !isValuePresent(field, object)) {
+            if (isIgnorableField(object, field)) {
                 continue;
             }
 
@@ -63,6 +63,11 @@ public class QueryBuilder {
         return query;
     }
 
+    private static <T> boolean isIgnorableField(T object, Field field) {
+        // Check if a field is marked as @IgnoreField or value not present (null); static field will also be ignored
+        return isStatic(field.getModifiers()) || field.isAnnotationPresent(IgnoreField.class) || !isValuePresent(field, object);
+    }
+
     private static void realizeFieldManipulation(StringBuilder query, Field field) {
         String fieldName = field.getName();
 
@@ -73,17 +78,7 @@ public class QueryBuilder {
         }
 
         // Table alias
-        if (field.isAnnotationPresent(UseTableAlias.class)) {
-            query.append(field.getAnnotation(UseTableAlias.class).value())
-                 .append(DOT);
-        }
-
-        // Field name
-        if (field.isAnnotationPresent(UseColumnName.class)) {
-            query.append(field.getAnnotation(UseColumnName.class).value());
-        } else {
-            query.append(fieldName);
-        }
+        actuallyBuildFieldName(field, fieldName, query);
 
         // Closing method wrap
         if (field.isAnnotationPresent(UseWrapMethod.class)) {
@@ -192,13 +187,14 @@ public class QueryBuilder {
 
         if (field.isAnnotationPresent(InRange.class)) {
             InRange inRangeAnnotation = field.getAnnotation(InRange.class);
+
             query.append(SPACE)
                  .append(inRangeAnnotation.inclusivity() ? GREATER_THAN_OR_EQUAL_TO.sign() : GREATER_THAN.sign())
                  .append(SPACE)
                  .append(COLON)
                  .append(inRangeAnnotation.fromField())
                  .append(SPACED_AND)
-                 .append(fieldName)
+                 .append(getActualFieldNameForRangeComparison(field, fieldName))
                  .append(SPACE)
                  .append(inRangeAnnotation.inclusivity() ? LESS_THAN_OR_EQUAL_TO.sign() : LESS_THAN.sign())
                  .append(SPACE)
@@ -210,13 +206,14 @@ public class QueryBuilder {
 
         if (field.isAnnotationPresent(OutRange.class)) {
             OutRange inRangeAnnotation = field.getAnnotation(OutRange.class);
+
             query.append(SPACE)
                  .append(inRangeAnnotation.inclusivity() ? LESS_THAN_OR_EQUAL_TO.sign() : LESS_THAN.sign())
                  .append(SPACE)
                  .append(COLON)
                  .append(inRangeAnnotation.fromField())
                  .append(SPACED_OR)
-                 .append(fieldName)
+                 .append(getActualFieldNameForRangeComparison(field, fieldName))
                  .append(SPACE)
                  .append(inRangeAnnotation.inclusivity() ? GREATER_THAN_OR_EQUAL_TO.sign() : GREATER_THAN.sign())
                  .append(SPACE)
@@ -227,6 +224,25 @@ public class QueryBuilder {
         }
 
         return false;
+    }
+
+    private static String getActualFieldNameForRangeComparison(Field field, String fieldName) {
+        return actuallyBuildFieldName(field, fieldName, new StringBuilder()).toString();
+    }
+
+    private static StringBuilder actuallyBuildFieldName(Field field, String fieldName, StringBuilder fieldNameBuilder) {
+        if (field.isAnnotationPresent(UseTableAlias.class)) {
+            fieldNameBuilder.append(field.getAnnotation(UseTableAlias.class).value())
+                            .append(DOT);
+        }
+
+        if (field.isAnnotationPresent(UseCustomName.class)) {
+            fieldNameBuilder.append(field.getAnnotation(UseCustomName.class).value());
+        } else {
+            fieldNameBuilder.append(fieldName);
+        }
+
+        return fieldNameBuilder;
     }
 
     private static void fillBinaryOperator(StringBuilder query, Field field, ComparisonType comparisonType) {
