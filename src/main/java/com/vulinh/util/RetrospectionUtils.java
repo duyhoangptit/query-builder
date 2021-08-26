@@ -17,7 +17,7 @@ public final class RetrospectionUtils {
     }
 
     /**
-     * Invoke field's getter method to see if field contains value. Will throw exception if the provided object is not a valid Java object, or getter method  is
+     * Invoke field's getter method to see if field contains value. Will throw exception if the provided object is not a valid Java object, or getter method is
      * missing.
      *
      * @param field  The field to test.
